@@ -23,19 +23,14 @@ class MineSweeper:
         self.ask_settings()
         if not self.width * self.height * self.mines:
             return
+
         self.mine_board = [[False for i in range(self.width)] for j in range(self.height)]
+
         self.set_game_window()
         self.cells = self.set_cells()
         self.set_status_bar()
 
         self.game_window.mainloop()
-
-
-    def set_game_window(self):
-        self.game_window = Tk()
-        self.game_window.title("🐈🐈🐈🐈🐈")
-        self.game_window.geometry(str(42 * self.width + 3) + "x" + str(44 * self.height + 3 + 22))
-        self.game_window.configure(bg=self.color_bg)
 
 
     def open_cell_callback(self, _event: Event):
@@ -52,7 +47,7 @@ class MineSweeper:
             if self.lifes > 1:
                 self.lifes -= 1
                 msgbox.showwarning("Oops", "You hit a mine\nLifes: " + str(self.lifes))
-                label = Label(self.game_window,text="💥", width=self.cell_width, height=self.cell_height, font=self.fonts, bg=self.color_bg)
+                label = Label(self.main_frame,text="💥", width=self.cell_width, height=self.cell_height, font=self.fonts, bg=self.color_bg)
                 label.grid(row=grid["row"], column=grid["column"])
                 self.cells[grid["row"]][grid["column"]].destroy()
                 self.cells[grid["row"]][grid["column"]] = label
@@ -84,6 +79,14 @@ class MineSweeper:
         self.game_window.update()
 
 
+    def time_callback(self):
+        self.time_label.after(100, self.time_callback)
+        if self.is_first_loop or self.game_over or self.game_won:
+            return
+        now = time.time()
+        self.time_label.configure(text="Time: " + str(int((now  - self.start_time) * 10) / 10))
+
+
     def show_answer(self):
         for i in range(self.height):
             for j in range(self.width):
@@ -103,9 +106,33 @@ class MineSweeper:
                 self.cells[i][j].configure(text="🐀")
 
 
+    def set_game_window(self):
+        self.game_window = Tk()
+        self.game_window.title("🐈🐈🐈🐈🐈")
+        self.game_window.geometry("675x485")
+        # self.game_window.geometry(str(42 * self.width + 3) + "x" + str(44 * self.height + 3 + 22))
+        self.game_window.configure(bg=self.color_bg)
+
+        self.main_canvas = Canvas(self.game_window, width=655, height=443, scrollregion=(0, 0, 42 * self.width + 3, 44 * self.height + 3), bg=self.color_bg)
+        self.main_canvas.grid(row=0, column=0)
+
+        self.xbar = Scrollbar(self.game_window, orient=HORIZONTAL, bg=self.color_bg)
+        self.xbar.grid(row=1, column=0, sticky="WE")
+        self.xbar.config(command=self.main_canvas.xview)
+        self.main_canvas.configure(xscrollcommand=self.xbar.set)
+
+        self.ybar = Scrollbar(self.game_window, orient=VERTICAL, bg=self.color_bg)
+        self.ybar.grid(row=0, column=1, sticky="NS")
+        self.ybar.config(command=self.main_canvas.yview)
+        self.main_canvas.configure(yscrollcommand=self.ybar.set)
+
+        self.main_frame = Frame(self.main_canvas, width=42 * self.width + 3, height=44 * self.height + 3, bg=self.color_bg)
+        self.main_canvas.create_window(0, 0, window=self.main_frame, anchor="nw")
+
+
     def set_status_bar(self):
         self.status_bar = Frame(self.game_window, width=42 * self.width, height=40, bg=self.color_bg)
-        self.status_bar.grid(row=self.height, column=0, columnspan=self.width, sticky="W")
+        self.status_bar.grid(row=2, column=0, columnspan=self.width, sticky="W")
         self.mines_left_label = Label(self.status_bar, text="Mines left: " + str(self.mines), font=self.fonts, bg=self.color_bg)
         self.mines_left_label.grid(row=0, column=0)
         self.lifes_left_label = Label(self.status_bar, text="Lifes left: " + str(self.lifes), font=self.fonts, bg=self.color_bg)
@@ -115,19 +142,11 @@ class MineSweeper:
         self.time_label.after(100, self.time_callback)
 
 
-    def time_callback(self):
-        self.time_label.after(100, self.time_callback)
-        if self.is_first_loop or self.game_over or self.game_won:
-            return
-        now = time.time()
-        self.time_label.configure(text="Time: " + str(int((now  - self.start_time) * 10) / 10))
-
-
     def open_cell(self, _x: int, _y: int):
         if type(self.cells[_x][_y]) == Label:
             return
         mines = self.count_mines(_x, _y)
-        label = Label(self.game_window, text=mines if mines else "😻", width=self.cell_width, height=self.cell_height, font=self.fonts, bg=self.color_bg, fg=self.get_color(mines))
+        label = Label(self.main_frame, text=mines if mines else "😻", width=self.cell_width, height=self.cell_height, font=self.fonts, bg=self.color_bg, fg=self.get_color(mines))
         label.grid(row=_x, column=_y)
         self.cells[_x][_y].destroy()
         self.cells[_x][_y] = label
@@ -150,7 +169,6 @@ class MineSweeper:
 
 
     def get_color(self, _mines: int) -> str:
-        #green -> yellow -> red
         match _mines:
             case 1:
                 return "darkgreen"
@@ -171,12 +189,13 @@ class MineSweeper:
             case _:
                 return "black"
 
+
     def set_cells(self) -> []:
         cells = []
         for i in range(self.height):
             row = []
             for j in range(self.width):
-                cell = Button(self.game_window,text=" ", width=self.cell_width, height=self.cell_height, font=self.fonts, bg=self.color_bg)
+                cell = Button(self.main_frame,text=" ", width=self.cell_width, height=self.cell_height, font=self.fonts, bg=self.color_bg)
                 cell.grid(row=i, column=j)
                 cell.bind("<Button-1>", self.open_cell_callback)
                 cell.bind("<Button-3>", self.flag_callback, add="+")
@@ -256,15 +275,6 @@ class MineSweeper:
                 return
 
 
-    def print_mine_board(self):
-        for i in range(self.height):
-            for j in range(self.width):
-                print(int(self.mine_board[i][j]), end=" ")
-            print()
-
-        print()
-
-
     def set_mines(self, _x: int, _y:int):
         for i in range(self.mines):
             while True:
@@ -288,6 +298,15 @@ class MineSweeper:
                     return True
 
         return False
+
+
+    def print_mine_board(self):
+        for i in range(self.height):
+            for j in range(self.width):
+                print(int(self.mine_board[i][j]), end=" ")
+            print()
+
+        print()
 
 
 if __name__ == "__main__":
