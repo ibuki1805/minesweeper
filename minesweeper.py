@@ -34,31 +34,32 @@ class MineSweeper:
 
 
     def open_cell_callback(self, _event: Event):
-        if _event.widget["text"] == "🚩":
+        if _event.widget["text"] == "🚩" or _event.widget["text"] == "💥":
             return
         grid = _event.widget.grid_info()
         if self.is_first_loop:
             self.set_mines(grid["column"], grid["row"])
-            self.print_mine_board()
+            # self.print_mine_board()
             self.start_time = time.time()
             self.is_first_loop = False
 
         if self.mine_board[grid["row"]][grid["column"]]:
-            if self.lifes > 1:
-                self.lifes -= 1
+            if int(self.lifes_left_label.cget("text").split(": ")[1]) > 1:
+
                 msgbox.showwarning("Oops", "You hit a mine\nLifes: " + str(self.lifes))
-                label = Label(self.main_frame,text="💥", width=self.cell_width, height=self.cell_height, font=self.fonts, bg=self.color_bg)
-                label.grid(row=grid["row"], column=grid["column"])
-                self.cells[grid["row"]][grid["column"]].destroy()
-                self.cells[grid["row"]][grid["column"]] = label
+                self.cells[grid["row"]][grid["column"]].configure(text="💥")
                 self.mines_left_label.configure(text="Mines left: " + str(int(self.mines_left_label.cget("text").split(": ")[1]) - 1))
                 self.lifes_left_label.configure(text="Lifes left: " + str(int(self.lifes_left_label.cget("text").split(": ")[1]) - 1))
                 return
 
             self.game_over = True
             self.show_answer()
-            msgbox.showerror("Game Over", "You lose")
-            self.game_window.destroy()
+            msg = msgbox.askyesno("Game Over", "You lose\nDo you want to play again?")
+            if msg:
+                self.reset_game()
+            else:
+                self.game_window.destroy()
+
             return
         else:
             self.open_cell(grid["row"], grid["column"])
@@ -87,6 +88,39 @@ class MineSweeper:
         self.time_label.configure(text="Time: " + str(int((now  - self.start_time) * 10) / 10))
 
 
+    def y_scroll_callback(self, _event: Event):
+        self.main_canvas.yview_scroll(-1 * int(_event.delta / 120), "units")
+
+
+    def x_scroll_callback(self, _event: Event):
+        self.main_canvas.xview_scroll(-1 * int(_event.delta / 120), "units")
+
+
+    def reset_callback(self):
+        msg = msgbox.askyesno("Give up?", "Are you sure to reset the game?")
+        if msg:
+            self.reset_game()
+
+
+    def reset_game(self):
+        msg = msgbox.askyesno("Setting", "Do you want to change settings?")
+        if msg:
+            self.game_window.destroy()
+            self.__init__()
+        else:
+            self.is_first_loop = True
+            self.game_over = False
+            self.game_won = False
+            self.mines_left_label.configure(text="Mines left: " + str(self.mines))
+            self.lifes_left_label.configure(text="Lifes left: " + str(self.lifes))
+            self.time_label.configure(text="Time: 0")
+            for row in self.cells:
+                for cell in row:
+                    cell.destroy()
+            self.cells = self.set_cells()
+            self.mine_board = [[False for i in range(self.width)] for j in range(self.height)]
+            return
+
     def show_answer(self):
         for i in range(self.height):
             for j in range(self.width):
@@ -109,9 +143,13 @@ class MineSweeper:
     def set_game_window(self):
         self.game_window = Tk()
         self.game_window.title("🐈🐈🐈🐈🐈")
-        self.game_window.geometry("675x485")
+        self.game_window.geometry("675x495")
         # self.game_window.geometry(str(42 * self.width + 3) + "x" + str(44 * self.height + 3 + 22))
         self.game_window.configure(bg=self.color_bg)
+        self.game_window.bind("<MouseWheel>", self.y_scroll_callback)
+        self.game_window.bind("<Shift-MouseWheel>", self.x_scroll_callback, add="+")
+        self.game_window.bind("<Control-MouseWheel>", self.x_scroll_callback, add="+")
+        # self.game_window.bind("<Control-MouseWheel>", self.zoom_callback, add="+")
 
         self.main_canvas = Canvas(self.game_window, width=655, height=443, scrollregion=(0, 0, 42 * self.width + 3, 44 * self.height + 3), bg=self.color_bg)
         self.main_canvas.grid(row=0, column=0)
@@ -140,6 +178,8 @@ class MineSweeper:
         self.time_label = Label(self.status_bar, text="Time: 0", font=self.fonts, bg=self.color_bg)
         self.time_label.grid(row=0, column=2)
         self.time_label.after(100, self.time_callback)
+        self.reset_button = Button(self.status_bar, text="Reset", font=self.fonts, bg=self.color_bg, command=self.reset_callback)
+        self.reset_button.grid(row=0, column=3)
 
 
     def open_cell(self, _x: int, _y: int):
@@ -258,14 +298,14 @@ class MineSweeper:
         if not self.lifes_txtbox.get() == "":
             self.lifes = int(self.lifes_txtbox.get())
 
-        if not self.width * self.height * self.mines * self.lifes:
+        if self.width * self.height * self.mines * self.lifes < 1:
             return
         elif self.mines >= self.width * self.height - 9:
             msgbox.showerror("Error", "Too many mines")
             return
-        elif self.lifes < 1:
-            msgbox.showerror("Error", "Lifes must be biggar than 0")
-            return
+        # elif self.lifes < 1:
+        #     msgbox.showerror("Error", "Lifes must be biggar than 0")
+        #     return
         else :
             msg = msgbox.askyesno("Confirm", "W*H: " + str(self.width) + " * " + str(self.height) + " Mines: " + str(self.mines) + " Lifes: " + str(self.lifes) + "\nAre you sure starting game with these settings?")
             if msg == True:
